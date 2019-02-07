@@ -96,6 +96,8 @@ struct MutexWatershed {
     uint64_t action_counter;
     bool finished;
     xt::pyarray<bool> seen_actions;
+    xt::pyarray<bool> seen_actionsAffs;
+    xt::pyarray<bool> seen_actionsReps;
     int64_t error_count;
 
     // constrained data
@@ -131,6 +133,8 @@ struct MutexWatershed {
         c_region_size = xt::ones<uint64_t>({n_points});
         uc_actions = xt::zeros<int64_t>({n_points * (directions)});
         seen_actions = xt::zeros<bool>({n_points * (directions)});
+        seen_actionsAffs = xt::zeros<bool>({n_points * (directions)});
+        seen_actionsReps = xt::zeros<bool>({n_points * (directions)});
         has_gt_labels = false;
         use_tollerant_check = false;
         finished = false;
@@ -161,13 +165,14 @@ struct MutexWatershed {
         s.push_back(directions);
         bounds = xt::zeros<bool>(s);
 
-        if (ndims == 2){
-            fast_2d_set_bounds();
-        }
-        else if(ndims == 3){
-            fast_3d_set_bounds();
-        }
-        else{
+        // if (ndims == 2){
+        //     fast_2d_set_bounds();
+        // }
+        // else if(ndims == 3){
+        //     fast_3d_set_bounds();
+        // }
+        // else
+        {
             std::cout << "WARNING: fallback to slow bound computation because image dimensions " << ndims << " != 2 or 3" << std::endl;
             bounds.reshape({n_points, directions});
             slow_set_bounds();
@@ -335,9 +340,9 @@ struct MutexWatershed {
         int64_t index = i;
         for (int64_t n = ndims-1; n >= 0; --n)
         {
-            if (k >= num_attractive_channels)
-                if (index % int64_t(dam_stride(n)) != 0)
-                    return false;
+            // if (k >= num_attractive_channels)
+            //     if (index % int64_t(dam_stride(n)) != 0)
+            //         return false;
             if (offsets(k, n) != 0) {
 
                 int64_t coord = index % image_shape(n);
@@ -479,22 +484,85 @@ struct MutexWatershed {
         }
     }
 
-    void repulsive_ucc_mst_cut(const xt::pyarray<long> & edge_list, uint64_t num_iterations) {
+    void repulsive_ucc_mst_cut(const xt::pyarray<float> & edge_listAffs,
+                               const xt::pyarray<long> & edge_listAffsIds,
+                               const xt::pyarray<float> & edge_listReps,
+                               const xt::pyarray<long> & edge_listRepsIds,
+                               long len,
+                               uint64_t num_iterations) {
         finished = true;
         action_counter = 0;
         error_count = 0;
-        for (auto& e : edge_list) {
-            if (num_iterations != 0 and num_iterations <= action_counter)
-                finished = false;
+        long affIdx = 0;
+        long repIdx = 0;
+        long e = 0;
+        float aff = 0;
+        float rep = 0;
 
-            if (!seen_actions(e)) {
-                seen_actions(e) = true;
-                uint64_t i = _get_position(e);
-                uint64_t d = _get_direction(e);
+        long cnt = 0;
+        while (true) {
+            if (cnt < 10) {
+                std::cout << affIdx << " a " << repIdx << std::endl;
+                std::cout << edge_listAffsIds[affIdx]  << " b "
+                          << edge_listRepsIds[repIdx] << std::endl;
+                std::cout << edge_listAffs[affIdx]  << " c "
+                          << edge_listReps[repIdx] << std::endl;
+            }
+            cnt += 1;
+            if (affIdx >= len && repIdx >= len) {
+                std::cout << len << " "
+                          << affIdx << " a " << repIdx << std::endl;
+                std::cout << edge_listAffsIds[affIdx-1]  << " b "
+                          << edge_listRepsIds[repIdx-1] << std::endl;
+                std::cout << edge_listAffs[affIdx-1]  << " c "
+                          << edge_listReps[repIdx-1] << std::endl;
+                break;
+            }
+            if (affIdx < len) {
+                aff = edge_listAffs[affIdx];
+            }
+            else {
+                aff = 0;
+            }
+            if (repIdx < len) {
+                rep = edge_listReps[repIdx];
+            }
+            else {
+                rep = 0;
+            }
+
+            if (cnt < 10) {
+                std::cout << (aff < rep) << " " << std::scientific << float(aff) << " " << float(rep) << (aff-rep) << std::endl;
+            }
+            // repulsion
+            // if ((rep - aff) > 0.0001  || affIdx >= len) {
+            if (rep > aff || affIdx >= len) {
+                e = edge_listRepsIds[repIdx];
+                repIdx += 1;
+                if (!seen_actionsReps(e)) {
+                    seen_actionsReps(e) = true;
+                    uint64_t i = _get_position(e);
+                    uint64_t d = _get_direction(e);
 
 
-                if (check_bounds(i, d)) {
-                    if (d < num_attractive_channels) {
+                    if (check_bounds(i, d)) {
+                        int64_t j = int64_t(i) + strides(d);
+                        set_uc();
+                        uc_actions(e) = add_dam_edge(i, j, e);
+                    }
+                }
+            }
+            // attraction
+            else {
+                e = edge_listAffsIds[affIdx];
+                affIdx += 1;
+                if (!seen_actionsAffs(e)) {
+                    seen_actionsAffs(e) = true;
+                    uint64_t i = _get_position(e);
+                    uint64_t d = _get_direction(e);
+
+
+                    if (check_bounds(i, d)) {
                         int64_t j = int64_t(i) + strides(d);
 
                         // unconstrained merge
@@ -505,13 +573,9 @@ struct MutexWatershed {
                         }
                         uc_actions(e) = a;
                     }
-                    else{
-                        int64_t j = int64_t(i) + strides(d);
-                        set_uc();
-                        uc_actions(e) = add_dam_edge(i, j, e);
-                    }
                 }
             }
+
         }
     }
 

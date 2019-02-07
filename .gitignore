@@ -1,0 +1,9 @@
+*.h5
+*.hdf
+build/
+dist/
+tmp/
+__pycache__/
+*.pytorch
+mutex_watershed.egg-info/
+log.txt

@@ -43,3 +43,12 @@ Training affinity networks
 
 To train an affinity network for isbi, you can use the scripts in `experiments/training`.
 You will also need [inferno](https://github.com/inferno-pytorch/inferno) and [neurofire](https://github.com/inferno-pytorch/neurofire)
+
+
+
+Patch Experiments
+---------------------
+To compute the mutex watershed segmentation on the patch predictions, go to the `experiments/patch` folder
+and run the `experiment` script:
+`python experiment.py /path/to/affinities.hdf key-in-hdf-file /path/to/res_folder`
+
