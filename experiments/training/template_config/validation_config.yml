@@ -5,13 +5,13 @@ slicing_config:
 
 volume_config:
   raw: 
-    path: '/g/kreshuk/data/isbi2012_challenge/isbi2012_train_volume.h5'
-    path_in_file: 'volumes/raw'
+    path: '/data/projects/isbi2012/isbi_train_volume.h5'
+    path_in_file: 'raw'
     dtype: float32
     sigma: 0.025
   segmentation:
-    path: '/g/kreshuk/data/isbi2012_challenge/isbi2012_train_volume.h5'
-    path_in_file: 'volumes/labels/neuron_ids_3d'
+    path: '/data/projects/isbi2012/isbi_train_volume.h5'
+    path_in_file: 'labels/gt_segmentation'
     dtype: float32
 
 master_config:
