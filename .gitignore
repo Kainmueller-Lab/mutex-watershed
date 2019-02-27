@@ -7,3 +7,4 @@ __pycache__/
 *.pytorch
 mutex_watershed.egg-info/
 log.txt
+*.pyc
