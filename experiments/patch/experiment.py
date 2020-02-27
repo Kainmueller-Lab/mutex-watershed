@@ -3,6 +3,8 @@ import time
 import argparse
 import numpy as np
 import h5py
+import zarr
+
 
 def writeHDF5(data, path, key, **kwargs):
     with h5py.File(path, 'w') as f:
@@ -63,7 +65,7 @@ def remove_tiny_inst(seg):
     print("cleaning up background...")
     for l in labels:
         cnt = np.count_nonzero(seg==l)
-        if cnt < 5:
+        if cnt == 1:
             seg[seg==l] = 0
 
     return seg
@@ -76,14 +78,20 @@ def mws_result(affinities, offsets, strides):
 def experiment(aff_path, aff_key, result_folder):
     # affinity offsets
     offsets = []
-    ln = 12
-    for i in range(-ln,ln+1):
-        for j in range(-ln,ln+1):
-            offsets.append([i,j])
+    ln = 20
+    for i in range(-ln, ln+1):
+        for j in range(-ln, ln+1):
+            offsets.append([i, j])
     print(offsets, len(offsets))
-
-    with h5py.File(aff_path) as f:
-        affs = f[aff_key][:]
+    
+    if aff_path.endswith(".zarr"):
+        zf = zarr.open(aff_path, mode="r")
+        affs = zf[aff_key][:]
+    elif aff_path.endswith(".hdf"):
+        with h5py.File(aff_path) as f:
+            affs = f[aff_key][:]
+    else:
+        raise NotImplementedError
 
     if not os.path.exists(result_folder):
         os.makedirs(result_folder)
@@ -99,8 +107,10 @@ def experiment(aff_path, aff_key, result_folder):
     if not fixed:
         mws_seg = remove_tiny_inst(mws_seg)
         mws_seg, _ = relabel(mws_seg, keepZero=True)
-    writeHDF5(mws_seg, os.path.join(result_folder, 'mws3.h5'),
-              'data', compression='gzip')
+    
+    sample_name = os.path.basename(aff_path).split(".")[0]
+    writeHDF5(mws_seg, os.path.join(result_folder, sample_name + '.hdf'),
+              'instances', compression='gzip')
 
 
 def main():
