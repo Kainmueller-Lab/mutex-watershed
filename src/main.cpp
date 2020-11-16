@@ -488,8 +488,10 @@ struct MutexWatershed {
                                const xt::pyarray<long> & edge_listAffsIds,
                                const xt::pyarray<float> & edge_listReps,
                                const xt::pyarray<long> & edge_listRepsIds,
-                               long len,
-                               uint64_t num_iterations) {
+                               long lenAff,
+                               long lenRep,
+                               uint64_t num_iterations,
+                               bool useVar) {
         finished = true;
         action_counter = 0;
         error_count = 0;
@@ -499,6 +501,48 @@ struct MutexWatershed {
         float aff = 0;
         float rep = 0;
 
+        if (useVar) {
+            for (std::size_t k = 0; k < edge_listAffsIds.size(); k++) {
+                e = edge_listAffsIds[k];
+                aff = edge_listAffs[k];
+                if (aff < 0.9) {
+                    if (!seen_actionsAffs(e)) {
+                        seen_actionsAffs(e) = true;
+                        uint64_t i = _get_position(e);
+                        uint64_t d = _get_direction(e);
+
+
+                        if (check_bounds(i, d)) {
+                            int64_t j = int64_t(i) + strides(d);
+                            set_uc();
+                            uc_actions(e) = add_dam_edge(i, j, e);
+                        }
+                    }
+                }
+                // attraction
+                else {
+                    if (!seen_actionsAffs(e)) {
+                        seen_actionsAffs(e) = true;
+                        uint64_t i = _get_position(e);
+                        uint64_t d = _get_direction(e);
+
+
+                        if (check_bounds(i, d)) {
+                            int64_t j = int64_t(i) + strides(d);
+
+                            // unconstrained merge
+                            set_uc();
+                            bool a = dam_constrained_merge(i, j);
+                            if (a) {
+                                ++action_counter;
+                            }
+                            uc_actions(e) = a;
+                        }
+                    }
+                }
+            }
+            return;
+        }
         long cnt = 0;
         while (true) {
             if (cnt < 10) {
@@ -509,8 +553,8 @@ struct MutexWatershed {
                           << edge_listReps[repIdx] << std::endl;
             }
             cnt += 1;
-            if (affIdx >= len && repIdx >= len) {
-                std::cout << len << " "
+            if (affIdx >= lenAff && repIdx >= lenRep) {
+                std::cout << lenAff << " "
                           << affIdx << " a " << repIdx << std::endl;
                 std::cout << edge_listAffsIds[affIdx-1]  << " b "
                           << edge_listRepsIds[repIdx-1] << std::endl;
@@ -518,13 +562,13 @@ struct MutexWatershed {
                           << edge_listReps[repIdx-1] << std::endl;
                 break;
             }
-            if (affIdx < len) {
+            if (affIdx < lenAff) {
                 aff = edge_listAffs[affIdx];
             }
             else {
                 aff = 0;
             }
-            if (repIdx < len) {
+            if (repIdx < lenRep) {
                 rep = edge_listReps[repIdx];
             }
             else {
@@ -536,7 +580,7 @@ struct MutexWatershed {
             }
             // repulsion
             // if ((rep - aff) > 0.0001  || affIdx >= len) {
-            if (rep > aff || affIdx >= len) {
+            if (rep > aff || affIdx >= lenAff) {
                 e = edge_listRepsIds[repIdx];
                 repIdx += 1;
                 if (!seen_actionsReps(e)) {

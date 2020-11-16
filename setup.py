@@ -49,7 +49,9 @@ ext_modules = [
             os.path.join(sys.prefix, 'include'),
             os.path.join(sys.prefix, 'Library', 'include')
         ],
-        language='c++'
+        language='c++',
+        extra_compile_args=["-lstdc++"],
+        extra_link_args=['-lstdc++']
     ),
 ]
 
@@ -82,7 +84,7 @@ class BuildExt(build_ext):
     """A custom build extension for adding compiler-specific options."""
     c_opts = {
         'msvc': ['/EHsc'],
-        'unix': [],
+        'unix': ['-lstdc++'],
     }
 
     if sys.platform == 'darwin':

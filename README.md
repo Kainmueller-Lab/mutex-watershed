@@ -50,5 +50,4 @@ Patch Experiments
 ---------------------
 To compute the mutex watershed segmentation on the patch predictions, go to the `experiments/patch` folder
 and run the `experiment` script:
-`python experiment.py /path/to/affinities.hdf key-in-hdf-file /path/to/res_folder`
-
+`python experiments/patch/experiment.py --aff_path /path/to/affinities.hdf --aff_key key-in-hdf-file --result_folder test`
